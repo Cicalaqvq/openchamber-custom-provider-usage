@@ -1,0 +1,3 @@
+# Keep tracked text identical across Windows and Linux for reproducible builds.
+* text=auto eol=lf
+*.png binary

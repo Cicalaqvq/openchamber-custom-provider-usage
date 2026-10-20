@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="styles.css">
+    <title>中转站余额</title>
+  </head>
+  <body>
+    <main id="root" class="panel" aria-label="中转站余额管理">
+      <header class="panel-head">
+        <div>
+          <h1 class="panel-title">中转站余额</h1>
+          <p class="panel-sub" data-summary>正在读取设置…</p>
+        </div>
+        <div class="panel-actions" data-actions></div>
+      </header>
+      <div class="banner" data-banner role="status" hidden></div>
+      <ul class="panel-list" data-list></ul>
+      <p class="panel-empty" data-empty hidden>还没有添加中转站。点击“添加中转站”开始。</p>
+      <section class="panel-section" aria-label="自动刷新">
+        <h2 class="section-title">自动刷新</h2>
+        <div class="section-row" data-auto></div>
+        <div class="section-row" data-interval></div>
+      </section>
+    </main>
+    <script src="main.js"></script>
+  </body>
+</html>

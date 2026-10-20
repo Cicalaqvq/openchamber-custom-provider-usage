@@ -1,0 +1,28 @@
+{
+  "name": "openchamber-custom-provider-usage",
+  "version": "0.2.0",
+  "license": "MIT",
+  "openchamber": {
+    "apiVersion": 1,
+    "engines": {
+      "openchamber": ">=2.5.0"
+    },
+    "contributes": {
+      "panel": {
+        "id": "custom-provider-usage",
+        "name": "中转站余额",
+        "icon": "wallet-line",
+        "entry": "panel/index.html"
+      },
+      "statusSection": {
+        "entry": "status/index.html",
+        "title": "中转站余额",
+        "height": 128
+      },
+      "service": {
+        "entry": "service/main.js",
+        "runtime": "host"
+      }
+    }
+  }
+}

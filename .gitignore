@@ -1,0 +1,16 @@
+node_modules/
+dist/*
+!dist/extension/
+dist/extension/*
+!dist/extension/**
+*.zip
+AGENTS.md
+.env
+.env.*
+!.env.example
+*.log
+*.tmp
+*.swp
+*.bak
+*.DS_Store
+Thumbs.db

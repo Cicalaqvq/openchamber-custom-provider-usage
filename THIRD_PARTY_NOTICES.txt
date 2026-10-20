@@ -1,0 +1,11 @@
+Third-party notices for the generated OpenChamber extension
+
+OpenChamber SDK
+---------------
+The browser bundle includes code from @openchamber/sdk 2.5.0, Copyright (c) 2025 Bohdan Triapitsyn. The SDK is distributed under the MIT License. Its unmodified license text is included at third-party/openchamber-sdk-LICENSE.txt.
+
+Zod
+---
+@openchamber/sdk declares Zod as an npm dependency, but the current browser IIFE bundle does not include Zod code (verified from esbuild's output metafile). No Zod source or runtime dependency is included in the generated extension. The build rejects additional bundled node_modules code until its license is reviewed and this notice is updated.
+
+This notice applies only to the identified third-party SDK code. It does not select or declare a license for this project or its original code.
