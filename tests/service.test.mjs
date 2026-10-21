@@ -2,14 +2,16 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { createServer } from "node:http";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { build } from "esbuild";
 
 /** Builds the service bundle exactly as the extension ships it, then runs it as the host would. */
 async function bundleService() {
-  const directory = await mkdtemp(join(resolve(tmpdir(), "opencode"), "openchamber-custom-provider-usage-service-"));
+  const root = resolve(tmpdir(), "opencode");
+  await mkdir(root, { recursive: true });
+  const directory = await mkdtemp(join(root, "openchamber-custom-provider-usage-service-"));
   const outfile = join(directory, "service.js");
   await build({ entryPoints: [new URL("../src/service.ts", import.meta.url).pathname.replace(/^\/([A-Za-z]:)/u, "$1")], outfile, bundle: true, format: "iife", platform: "node", target: ["es2022"], charset: "utf8", logLevel: "silent" });
   return { directory, outfile, source: await readFile(outfile, "utf8") };
