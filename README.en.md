@@ -48,7 +48,7 @@ Requires OpenChamber Web or Desktop **2.5.0+**. This is the minimum version requ
 1. In OpenChamber, open **设置 → 扩展 → 添加** (Settings → Extensions → Add).
 2. Select a Git repository URL, project root directory, or ZIP provided by the maintainer, then install and enable the extension. Git-based installation requires Git in the host environment.
 3. During installation, review and explicitly approve the extension's **local service** permission request.
-4. Add sites from the left-side “中转站余额” (Relay Balance) panel, then enable and expand the “中转站余额” section in **Work Status**.
+4. Add sites from the **OpenChamber Custom Provider Usage** panel in the left sidebar, then enable and expand the **OpenChamber Custom Provider Usage** section in **Work Status**.
 
 > GitHub repository: [Cicalaqvq/openchamber-custom-provider-usage](https://github.com/Cicalaqvq/openchamber-custom-provider-usage). Clone URL:
 > ```text
@@ -64,6 +64,8 @@ Regular users do not need Node.js, npm, or build tools; the host provides the ex
 
 - **Address:** Enter the site's root URL, for example `https://relay.example.com`; `https://` may be omitted. Do not include a path, query parameters, fragment, or username/password in the URL. Public addresses must use HTTPS; HTTP is allowed only for localhost or private network addresses.
 - **Token:** Use a separate account access token / PAT for each site, **not the `sk-` API Key used for model calls**. Leaving the token blank while editing preserves the existing value; you can also choose to clear it.
+- **Account user ID (optional):** Only enter a positive integer account user ID when the site requires the `New-Api-User` request header. Leaving it blank or clearing it omits that header; other sites can leave it blank.
+- **9527.codes example:** Configure the site's account PAT and the user ID belonging to that PAT's account (not the token ID). Find it in your own account profile or in `data.id` from an existing successful `/api/user/self` response in the site's DevTools. Do not share authentication headers, cookies, or tokens.
 - **Saving:** “完成” (Done) in the form only updates the current editing state; only “保存” (Save) at the top writes the settings.
 - You can query sites individually, refresh all sites, or change their order. Deleting a site requires confirmation. The “官网” (Official site) button opens the site's root URL in the system browser.
 
@@ -83,11 +85,11 @@ Tokens are stored in the extension storage of the OpenChamber instance where the
 | --- | --- |
 | Balance is empty or returns 401 / 403 | Confirm that you are using an account access token / PAT (not an `sk-` API Key) and that the account can access `/api/user/self`. |
 | Service did not start or was not authorized | In **设置 → 扩展** (Settings → Extensions), confirm that the extension is enabled and local service permission has been approved. The first request starts the service; if it fails, try again later. |
-| No sites are listed | Add a site from the left-side “中转站余额” (Relay Balance) panel; the Work Status section does not provide a creation form. |
+| No sites are listed | Add a site from the **OpenChamber Custom Provider Usage** panel in the left sidebar; the Work Status section does not provide a creation form. |
 | Invalid address or connection failure | Check the site's root URL and network. Public addresses must use HTTPS; URLs must not contain a path, query parameters, fragment, or username/password. |
 | Raw quota and a fallback explanation are displayed | Check `/api/status`, `quota_per_unit`, the currency type, and the relevant exchange rates. |
 | Configuration changes are not reflected immediately | The visible section applies new settings at its next check (after at most about 15 seconds or the current refresh interval); settings are not updated while it is collapsed. |
-| Management panel will not open | “管理” (Manage) in the section requires a current project directory. You can also open “中转站余额” (Relay Balance) from the left extension sidebar. |
+| Management panel will not open | “管理” (Manage) in the section requires a current project directory. You can also open **OpenChamber Custom Provider Usage** from the left extension sidebar. |
 
 <details>
 <summary>Technical behavior and limitations</summary>
@@ -96,9 +98,9 @@ Tokens are stored in the extension storage of the OpenChamber instance where the
 - Reads conversion settings from `GET /api/status`: USD is `quota / quota_per_unit`; CNY additionally multiplies by the site's USD exchange rate; CUSTOM uses the site's custom symbol and exchange rate; TOKENS displays the raw quota. If configuration is missing or invalid, or the currency is unknown, the raw quota is displayed with an explanation.
 - Queries at most 4 sites concurrently per batch. A failure updates only that site's error status; its last successful balance and timestamp are retained, and errors are summarized at the bottom of the section.
 - Supports up to 20 sites; names are limited to 40 characters and tokens to 512 characters. Stored entries are validated again when read, and corrupted entries are discarded.
-- The current upstream version does not require a `New-Api-User` user ID request header. Older or customized site versions that depend on this header may not be queryable.
+- The optional account user ID is used only for the `New-Api-User` request header, which is omitted when left blank. The 9527.codes missing-header failure was reproduced from the user-provided 401 response using a local regression fixture; authenticated 9527.codes and host end-to-end verification remain unverified.
 - The extension requests only the `service` permission; it does not request `network`, `files`, or `filesystem`. The OpenChamber host's local service accesses sites with dynamically configured addresses. The service listens only on `127.0.0.1`, requires a service token to authorize each request, and is called by the extension page through `host.serviceRequest`.
-- The service's business endpoint is `POST /proxy`, with a separate host readiness check at `/health`. Target addresses are revalidated as HTTPS root URLs (or localhost/private-network HTTP); request paths are restricted and redirects are not followed. Only the relevant site's Bearer token is attached. The service does not log requests or read other host credentials. Upstream responses larger than 1 MB are rejected, and error messages use fixed error codes only.
+- The service's business endpoint is `POST /proxy`, with a separate host readiness check at `/health`. Target addresses are revalidated as HTTPS root URLs (or localhost/private-network HTTP); request paths are restricted and redirects are not followed. Only the relevant site's Bearer token is attached, plus `New-Api-User` only when a user ID is configured. The service does not log requests or read other host credentials. Upstream responses larger than 1 MB are rejected, and error messages use fixed error codes only.
 
 </details>
 

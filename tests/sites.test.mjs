@@ -9,7 +9,7 @@ const compiled = await build({
 });
 const sites = await import(`data:text/javascript;base64,${Buffer.from(compiled.outputFiles[0].text).toString("base64")}`);
 const {
-  DEFAULT_SETTINGS, MAX_SITES, normalizeOrigin, parseSites, sanitizeSettings, validateSiteDraft,
+  DEFAULT_SETTINGS, MAX_SITES, normalizeOrigin, parseSites, sanitizeSettings, validateSiteDraft, validateUserId,
   autoRefreshDelayMs, formatUpdatedAt,
 } = sites;
 
@@ -48,6 +48,34 @@ test("drafts keep the stored token when the token field is left blank", () => {
 
   const whitespaceToken = validateSiteDraft({ name: "", origin: "https://a.example.com", token: "a b" }, "");
   assert.equal(whitespaceToken.ok, false);
+});
+
+test("user IDs are optional positive safe decimal integers in drafts and storage", () => {
+  assert.deepEqual(validateUserId(undefined), { ok: true });
+  assert.deepEqual(validateUserId("  "), { ok: true });
+  assert.deepEqual(validateUserId(" 001 "), { ok: false });
+  assert.deepEqual(validateUserId("9007199254740991"), { ok: true, userId: "9007199254740991" });
+  for (const bad of ["0", "-1", "1.2", "1e2", "1;evil", 12, null, "9007199254740992"]) {
+    assert.equal(validateUserId(bad).ok, false, String(bad));
+  }
+  assert.deepEqual(validateSiteDraft({ name: "", origin: "https://a.example.com", token: "", userId: "42" }, "stored"), {
+    ok: true, name: "a.example.com", origin: "https://a.example.com", token: "stored", userId: "42",
+  });
+  const invalidDraft = validateSiteDraft({ name: "", origin: "https://a.example.com", token: "", userId: "1e2" }, "stored");
+  assert.equal(invalidDraft.ok, false);
+  assert.match(invalidDraft.errors.userId, /正整数/u);
+  const cleared = validateSiteDraft({ name: "", origin: "https://a.example.com", token: "", userId: " " }, "stored");
+  assert.equal(cleared.ok, true);
+  assert.equal(Object.hasOwn(cleared, "userId"), false);
+  assert.deepEqual(parseSites([
+    { id: "a", origin: "https://a.example.com", token: "t", userId: " 42 " },
+    { id: "b", origin: "https://b.example.com", token: "t", userId: "" },
+    { id: "c", origin: "https://c.example.com", token: "t", userId: "0" },
+    { id: "d", origin: "https://d.example.com", token: "t", userId: 42 },
+  ]), [
+    { id: "a", name: "a.example.com", origin: "https://a.example.com", token: "t", userId: "42" },
+    { id: "b", name: "b.example.com", origin: "https://b.example.com", token: "t" },
+  ]);
 });
 
 test("stored sites are revalidated and malformed entries dropped", () => {

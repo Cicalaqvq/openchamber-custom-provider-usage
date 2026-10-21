@@ -12,8 +12,9 @@ import { assertDirectoriesMatch } from "../scripts/check-dist.mjs";
 test("declares a management panel, a Work Status section and one local service", () => {
   const manifest = createManifest();
   assert.deepEqual(manifest.openchamber.contributes.panel, {
-    id: "custom-provider-usage", name: "中转站余额", icon: "wallet-line", entry: "panel/index.html",
+    id: "custom-provider-usage", name: "OpenChamber Custom Provider Usage", icon: "wallet-line", entry: "panel/index.html",
   });
+  assert.equal(manifest.openchamber.contributes.statusSection.title, "OpenChamber Custom Provider Usage");
   assert.equal("integration" in manifest.openchamber.contributes, false, "no fixed apiOrigin: sites are user data");
   const parsed = parseManifest(manifest);
   assert.equal(parsed.ok, true, parsed.ok ? "" : parsed.message);
@@ -106,8 +107,14 @@ test("builds both pages, the service bundle and local assets", async () => {
     const notices = await readFile(join(output, "THIRD_PARTY_NOTICES.txt"), "utf8");
 
     assert.match(statusHtml, /id="root"/u);
+    assert.match(statusHtml, /<title>OpenChamber Custom Provider Usage<\/title>/u);
+    assert.match(statusHtml, /<main id="root" aria-label="OpenChamber Custom Provider Usage">/u);
+    assert.match(statusHtml, /<div class="balance-label" data-label>账户余额<\/div>/u);
     assert.match(statusHtml, /href="styles\.css"/u);
     assert.match(statusHtml, /src="main\.js"/u);
+    assert.match(panelHtml, /<title>OpenChamber Custom Provider Usage<\/title>/u);
+    assert.match(panelHtml, /<main id="root" class="panel" aria-label="OpenChamber Custom Provider Usage">/u);
+    assert.match(panelHtml, /<h1 class="panel-title">OpenChamber Custom Provider Usage<\/h1>/u);
     assert.match(panelHtml, /src="main\.js"/u);
     assert.equal(css, sourceCss);
     assert.equal(await readFile(join(output, "panel", "styles.css"), "utf8"), sourceCss);
@@ -122,7 +129,9 @@ test("builds both pages, the service bundle and local assets", async () => {
 
     const manifest = JSON.parse(await readFile(join(output, "package.json"), "utf8"));
     assert.equal(manifest.openchamber.contributes.statusSection.entry, "status/index.html");
+    assert.equal(manifest.openchamber.contributes.statusSection.title, "OpenChamber Custom Provider Usage");
     assert.equal(manifest.openchamber.contributes.panel.entry, "panel/index.html");
+    assert.equal(manifest.openchamber.contributes.panel.name, "OpenChamber Custom Provider Usage");
   } finally {
     await rm(output, { recursive: true, force: true });
   }

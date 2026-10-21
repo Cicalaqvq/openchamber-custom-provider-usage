@@ -195,6 +195,23 @@ test("关闭自动刷新但仍保留区块可见时，面板改动站点会触�
   assert.equal(h.live().at(-1).ms, 15_000);
 });
 
+test("关闭自动刷新时，仅 userId 的新增、修改和清除都会触发该站点重查", async () => {
+  const h = harness({ sites: [site("a")], settings: { autoRefresh: false, intervalSeconds: 10 } });
+  h.controller.ready();
+  await settle();
+  h.calls[0].item.resolve(balance("$1.00"));
+  await settle();
+  for (const userId of ["9527", "9528", undefined]) {
+    h.write({ sites: [{ ...site("a"), ...(userId ? { userId } : {}) }], settings: { autoRefresh: false, intervalSeconds: 10 } });
+    h.live().at(-1).handler();
+    await settle();
+    assert.equal(h.calls.length, userId === "9527" ? 2 : userId === "9528" ? 3 : 4);
+    assert.equal(h.calls.at(-1).site.userId, userId);
+    h.calls.at(-1).item.resolve(balance("$2.00"));
+    await settle();
+  }
+});
+
 test("没有站点时给出空态，不发出查询也不排查询定时器", async () => {
   const h = harness({ sites: [], settings: { autoRefresh: true, intervalSeconds: 10 } });
   h.controller.ready();

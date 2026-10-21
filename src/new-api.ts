@@ -152,6 +152,7 @@ const CODE_MESSAGES: Record<string, string> = {
   DISABLED: "扩展已暂停，请在扩展设置中启用后重试。",
   HOST_REJECTED: "OpenChamber 宿主拒绝了请求，请检查扩展授权和站点配置。",
   BAD_ORIGIN: "站点地址无效，请在中转站余额面板中重新填写 HTTPS 根地址。",
+  BAD_USER_ID: "站点用户 ID 无效，请在该站点设置中填写正确的数字账号用户 ID。",
   NETWORK: "无法连接该中转站，请检查地址、网络和站点状态。",
   RESPONSE_TOO_LARGE: "站点响应过大，无法安全读取。",
   SERVICE_RESPONSE_INVALID: "本地服务返回了无法识别的响应，请重新打开此区块。",

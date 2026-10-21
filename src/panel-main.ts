@@ -20,12 +20,12 @@ const actions = root.querySelector<HTMLElement>("[data-actions]")!;
 const autoSlot = root.querySelector<HTMLElement>("[data-auto]")!;
 const intervalSlot = root.querySelector<HTMLElement>("[data-interval]")!;
 
-type Draft = { name: string; origin: string; token: string };
+type Draft = { name: string; origin: string; token: string; userId: string };
 type Row = {
   /** Last saved configuration; undefined while a brand-new row has never been committed. */
   saved?: SiteConfig;
   draft: Draft;
-  errors: { name?: string; origin?: string; token?: string };
+  errors: { name?: string; origin?: string; token?: string; userId?: string };
   /** True while the form is open. A new row starts open and stays unsaved until it validates. */
   editing: boolean;
   confirmingDelete: boolean;
@@ -76,8 +76,8 @@ function isDirty(): boolean {
 
 function emptyDraft(site?: SiteConfig): Draft {
   return site
-    ? { name: site.name, origin: site.origin, token: "" }
-    : { name: "", origin: "", token: "" };
+    ? { name: site.name, origin: site.origin, token: "", userId: site.userId ?? "" }
+    : { name: "", origin: "", token: "", userId: "" };
 }
 
 function newId(): string {
@@ -141,7 +141,7 @@ async function persistAll(): Promise<void> {
       invalid = true;
       continue;
     }
-    row.saved = { id: row.saved?.id ?? newId(), name: result.name, origin: result.origin, token: result.token };
+    row.saved = { id: row.saved?.id ?? newId(), name: result.name, origin: result.origin, token: result.token, ...(result.userId ? { userId: result.userId } : {}) };
     row.draft = emptyDraft(row.saved);
     row.errors = {};
     row.editing = false;
@@ -263,7 +263,7 @@ function finishEdit(row: Row): void {
     render();
     return;
   }
-  row.saved = { id: row.saved?.id ?? newId(), name: result.name, origin: result.origin, token: result.token };
+  row.saved = { id: row.saved?.id ?? newId(), name: result.name, origin: result.origin, token: result.token, ...(result.userId ? { userId: result.userId } : {}) };
   row.draft = emptyDraft(row.saved);
   row.errors = {};
   row.editing = false;
@@ -288,9 +288,10 @@ function renderEditor(row: Row): HTMLElement {
   const nameSlot = document.createElement("div");
   const originSlot = document.createElement("div");
   const tokenSlot = document.createElement("div");
+  const userIdSlot = document.createElement("div");
   const footer = document.createElement("div");
   footer.className = "site-editor-actions";
-  box.append(nameSlot, originSlot, tokenSlot, footer);
+  box.append(nameSlot, originSlot, tokenSlot, userIdSlot, footer);
 
   mountTextField(nameSlot, {
     label: "名称（可选）",
@@ -317,6 +318,15 @@ function renderEditor(row: Row): HTMLElement {
     error: row.errors.token,
     helper: "账号 access token / PAT，不是 sk- 开头的模型 API Key。",
     onChange: (value) => { row.draft.token = value; delete row.errors.token; },
+  });
+  mountTextField(userIdSlot, {
+    label: "用户 ID（可选）",
+    value: row.draft.userId,
+    placeholder: "填写账号的数字用户 ID",
+    mono: true,
+    error: row.errors.userId,
+    helper: "部分站点需要填写账号用户 ID，其他站点可留空。",
+    onChange: (value) => { row.draft.userId = value; delete row.errors.userId; },
   });
 
   mountButton(footer, { label: "完成", size: "sm", onClick: () => finishEdit(row) });

@@ -7,6 +7,8 @@ export type SiteConfig = {
   origin: string;
   /** New API account access token / PAT. Never rendered in the status section. */
   token: string;
+  /** Optional New-Api-User account identifier. */
+  userId?: string;
 };
 
 export type AppSettings = {
@@ -28,6 +30,20 @@ const MAX_ID_LENGTH = 64;
 const PRIVATE_HOST = /^(localhost|[^.]+\.localhost|[^.]+\.local|127(?:\.\d{1,3}){3}|10(?:\.\d{1,3}){3}|192\.168(?:\.\d{1,3}){2}|172\.(?:1[6-9]|2\d|3[01])(?:\.\d{1,3}){2}|::1|\[::1\])$/iu;
 
 export type OriginResult = { ok: true; origin: string } | { ok: false; message: string };
+
+export type UserIdResult = { ok: true; userId?: string } | { ok: false };
+
+/** Accepts only a positive safe decimal integer; blank strings mean not configured. */
+export function validateUserId(value: unknown): UserIdResult {
+  if (value === undefined) return { ok: true };
+  if (typeof value !== "string") return { ok: false };
+  const trimmed = value.trim();
+  if (!trimmed) return { ok: true };
+  if (!/^[1-9]\d*$/u.test(trimmed)) return { ok: false };
+  const number = Number(trimmed);
+  if (!Number.isSafeInteger(number) || number < 1) return { ok: false };
+  return { ok: true, userId: String(number) };
+}
 
 function failOrigin(message: string): OriginResult {
   return { ok: false, message };
@@ -71,10 +87,10 @@ export function displayHost(origin: string): string {
   }
 }
 
-export type SiteDraft = { name: string; origin: string; token: string };
-export type SiteDraftErrors = { name?: string; origin?: string; token?: string };
+export type SiteDraft = { name: string; origin: string; token: string; userId?: string };
+export type SiteDraftErrors = { name?: string; origin?: string; token?: string; userId?: string };
 export type SiteDraftResult =
-  | { ok: true; name: string; origin: string; token: string }
+  | { ok: true; name: string; origin: string; token: string; userId?: string }
   | { ok: false; errors: SiteDraftErrors };
 
 /** Validates one edited site; `existingToken` lets a blank token keep the stored one. */
@@ -82,6 +98,8 @@ export function validateSiteDraft(draft: SiteDraft, existingToken: string): Site
   const errors: SiteDraftErrors = {};
   const origin = normalizeOrigin(draft.origin);
   if (!origin.ok) errors.origin = origin.message;
+  const userId = validateUserId(draft.userId);
+  if (!userId.ok) errors.userId = "用户 ID 必须是正整数。";
   const token = draft.token.trim();
   if (!token && !existingToken) errors.token = "请填写账号 access token（不是 sk- 开头的模型 API Key）。";
   if (token.length > MAX_TOKEN_LENGTH) errors.token = "令牌过长。";
@@ -95,6 +113,7 @@ export function validateSiteDraft(draft: SiteDraft, existingToken: string): Site
     name: rawName || displayHost(safeOrigin),
     origin: safeOrigin,
     token: token || existingToken,
+    ...(userId.ok && userId.userId ? { userId: userId.userId } : {}),
   };
 }
 
@@ -119,12 +138,15 @@ export function parseSites(value: unknown): SiteConfig[] {
     const rawName = typeof item.name === "string" ? item.name.trim() : "";
     const token = typeof item.token === "string" ? item.token.trim() : "";
     if (token.length > MAX_TOKEN_LENGTH) continue;
+    const userId = validateUserId(item.userId);
+    if (!userId.ok) continue;
     seen.add(id);
     sites.push({
       id,
       name: (rawName.slice(0, MAX_NAME_LENGTH) || displayHost(origin.origin)),
       origin: origin.origin,
       token,
+      ...(userId.userId ? { userId: userId.userId } : {}),
     });
     if (sites.length >= MAX_SITES) break;
   }

@@ -34,6 +34,16 @@
 
   // src/sites.ts
   var PRIVATE_HOST = /^(localhost|[^.]+\.localhost|[^.]+\.local|127(?:\.\d{1,3}){3}|10(?:\.\d{1,3}){3}|192\.168(?:\.\d{1,3}){2}|172\.(?:1[6-9]|2\d|3[01])(?:\.\d{1,3}){2}|::1|\[::1\])$/iu;
+  function validateUserId(value) {
+    if (value === void 0) return { ok: true };
+    if (typeof value !== "string") return { ok: false };
+    const trimmed = value.trim();
+    if (!trimmed) return { ok: true };
+    if (!/^[1-9]\d*$/u.test(trimmed)) return { ok: false };
+    const number = Number(trimmed);
+    if (!Number.isSafeInteger(number) || number < 1) return { ok: false };
+    return { ok: true, userId: String(number) };
+  }
   function failOrigin(message) {
     return { ok: false, message };
   }
@@ -113,14 +123,14 @@
     if (/[\u0000-\u001f\u007f\s]/u.test(trimmed)) return void 0;
     return trimmed;
   }
-  async function proxy(originInput, bearer, path) {
+  async function proxy(originInput, bearer, path, userId) {
     const normalized = normalizeOrigin(originInput);
     if (!normalized.ok) throw new Error("BAD_ORIGIN");
     const url = new URL(path, `${normalized.origin}/`);
     if (url.origin !== normalized.origin) throw new Error("BAD_ORIGIN");
     const response = await fetch(url, {
       method: "GET",
-      headers: { Accept: "application/json", Authorization: `Bearer ${bearer}` },
+      headers: { Accept: "application/json", Authorization: `Bearer ${bearer}`, ...userId ? { "New-Api-User": userId } : {} },
       redirect: "manual",
       signal: AbortSignal.timeout(FETCH_TIMEOUT_MS)
     });
@@ -161,6 +171,7 @@
       }
       const path = safePath(payload.path);
       const bearer = safeToken(payload.token);
+      const userId = validateUserId(payload.userId);
       const origin = typeof payload.origin === "string" ? payload.origin : "";
       if (!path) {
         send(res, 400, { error: "BAD_PATH" });
@@ -170,8 +181,12 @@
         send(res, 400, { error: "BAD_TOKEN" });
         return;
       }
+      if (!userId.ok) {
+        send(res, 400, { error: "BAD_USER_ID" });
+        return;
+      }
       try {
-        const result = await proxy(origin, bearer, path);
+        const result = await proxy(origin, bearer, path, userId.userId);
         send(res, 200, result);
       } catch (error) {
         const code = error instanceof Error ? error.message : "NETWORK";

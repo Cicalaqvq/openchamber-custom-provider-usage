@@ -27,7 +27,7 @@ export function createQuerier(host: ServiceCaller): SiteQuerier {
     const response = await host.serviceRequest({
       method: "POST",
       path: "/proxy",
-      body: JSON.stringify({ origin: site.origin, token: site.token, path }),
+      body: JSON.stringify({ origin: site.origin, token: site.token, path, ...(site.userId ? { userId: site.userId } : {}) }),
     });
     const envelope = parseEnvelope(response.body);
     // The service's own refusals arrive as `{ error }`, including on a 4xx.
@@ -39,7 +39,7 @@ export function createQuerier(host: ServiceCaller): SiteQuerier {
 }
 
 /** Codes the shipped service can return; anything else is treated as a failure, never displayed. */
-const SERVICE_CODES = new Set(["BAD_ORIGIN", "BAD_PATH", "BAD_TOKEN", "REQUEST_TOO_LARGE", "BAD_REQUEST", "NETWORK", "RESPONSE_TOO_LARGE", "UNAUTHORIZED"]);
+const SERVICE_CODES = new Set(["BAD_ORIGIN", "BAD_PATH", "BAD_TOKEN", "BAD_USER_ID", "REQUEST_TOO_LARGE", "BAD_REQUEST", "NETWORK", "RESPONSE_TOO_LARGE", "UNAUTHORIZED"]);
 
 export async function querySite(site: SiteConfig, service: SiteQuerier): Promise<BalanceResult> {
   const request: Request = (path) => service(site, path);

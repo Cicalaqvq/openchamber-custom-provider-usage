@@ -64,6 +64,10 @@ test("the service only answers its holder, and only through the proxy route", as
     assert.equal((await service.post("/proxy", { origin: "http://public.example.com", token: "t", path: "/api/user/self" })).body.error, "BAD_ORIGIN");
     assert.equal((await service.post("/proxy", { origin: "https://a.example.com", token: "", path: "/api/user/self" })).body.error, "BAD_TOKEN");
     assert.equal((await service.post("/proxy", { origin: "https://a.example.com", token: "a b", path: "/api/user/self" })).body.error, "BAD_TOKEN");
+    for (const userId of ["0", "-1", "1.2", "1e2", "9007199254740992", 12, null]) {
+      const invalid = await service.post("/proxy", { origin: "https://a.example.com", token: "t", path: "/api/user/self", userId });
+      assert.deepEqual(invalid, { status: 400, body: { error: "BAD_USER_ID" } });
+    }
   } finally {
     service.child.kill();
     await rm(built.directory, { recursive: true, force: true });
@@ -87,6 +91,44 @@ test("the service forwards only the bearer and returns the site response untouch
     assert.equal(result.body.status, 200);
     assert.deepEqual(JSON.parse(result.body.body), { success: true, data: { quota: 1_915_000 } });
     assert.deepEqual(seen, [{ url: "/api/user/self", authorization: "Bearer site-token" }]);
+  } finally {
+    service.child.kill();
+    await new Promise((done) => site.close(done));
+    await rm(built.directory, { recursive: true, force: true });
+  }
+});
+
+test("9527.codes wallet endpoint requires New-Api-User and accepts the configured account ID", async () => {
+  const seen = [];
+  const site = createServer((request, response) => {
+    seen.push({ authorization: request.headers.authorization, userId: request.headers["new-api-user"] });
+    if (!request.headers["new-api-user"]) {
+      response.writeHead(401, { "Content-Type": "application/json" });
+      response.end(JSON.stringify({ message: "Unauthorized, New-Api-User header not provided", success: false }));
+      return;
+    }
+    response.writeHead(200, { "Content-Type": "application/json" });
+    response.end(JSON.stringify({ success: true, data: { quota: 1_915_000 } }));
+  });
+  const sitePort = await listen(site);
+  const built = await bundleService();
+  const service = startService(built.outfile);
+  try {
+    await waitForHealth(service.port, service.token);
+    const missing = await service.post("/proxy", { origin: `http://127.0.0.1:${sitePort}`, token: "9527-pat", path: "/api/user/self" });
+    assert.equal(missing.body.status, 401);
+    assert.deepEqual(JSON.parse(missing.body.body), { message: "Unauthorized, New-Api-User header not provided", success: false });
+
+    const configured = await service.post("/proxy", { origin: `http://127.0.0.1:${sitePort}`, token: "9527-pat", userId: "12345", path: "/api/user/self" });
+    assert.equal(configured.body.status, 200);
+    assert.deepEqual(JSON.parse(configured.body.body), { success: true, data: { quota: 1_915_000 } });
+    const otherSite = await service.post("/proxy", { origin: `http://127.0.0.1:${sitePort}`, token: "other-pat", userId: "67890", path: "/api/user/self" });
+    assert.equal(otherSite.body.status, 200);
+    assert.deepEqual(seen, [
+      { authorization: "Bearer 9527-pat", userId: undefined },
+      { authorization: "Bearer 9527-pat", userId: "12345" },
+      { authorization: "Bearer other-pat", userId: "67890" },
+    ]);
   } finally {
     service.child.kill();
     await new Promise((done) => site.close(done));

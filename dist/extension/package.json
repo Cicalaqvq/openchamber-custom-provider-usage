@@ -10,13 +10,13 @@
     "contributes": {
       "panel": {
         "id": "custom-provider-usage",
-        "name": "中转站余额",
+        "name": "OpenChamber Custom Provider Usage",
         "icon": "wallet-line",
         "entry": "panel/index.html"
       },
       "statusSection": {
         "entry": "status/index.html",
-        "title": "中转站余额",
+        "title": "OpenChamber Custom Provider Usage",
         "height": 128
       },
       "service": {

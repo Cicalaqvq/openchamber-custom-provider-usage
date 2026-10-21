@@ -2104,6 +2104,7 @@ ${GUEST_UI_LOOK_CSS}`;
     DISABLED: "扩展已暂停，请在扩展设置中启用后重试。",
     HOST_REJECTED: "OpenChamber 宿主拒绝了请求，请检查扩展授权和站点配置。",
     BAD_ORIGIN: "站点地址无效，请在中转站余额面板中重新填写 HTTPS 根地址。",
+    BAD_USER_ID: "站点用户 ID 无效，请在该站点设置中填写正确的数字账号用户 ID。",
     NETWORK: "无法连接该中转站，请检查地址、网络和站点状态。",
     RESPONSE_TOO_LARGE: "站点响应过大，无法安全读取。",
     SERVICE_RESPONSE_INVALID: "本地服务返回了无法识别的响应，请重新打开此区块。"
@@ -2141,7 +2142,7 @@ ${GUEST_UI_LOOK_CSS}`;
       const response = await host2.serviceRequest({
         method: "POST",
         path: "/proxy",
-        body: JSON.stringify({ origin: site.origin, token: site.token, path })
+        body: JSON.stringify({ origin: site.origin, token: site.token, path, ...site.userId ? { userId: site.userId } : {} })
       });
       const envelope = parseEnvelope(response.body);
       if (typeof envelope.error === "string" && SERVICE_CODES.has(envelope.error)) throw new Error(envelope.error);
@@ -2150,7 +2151,7 @@ ${GUEST_UI_LOOK_CSS}`;
       return { status: envelope.status, body: envelope.body };
     };
   }
-  var SERVICE_CODES = /* @__PURE__ */ new Set(["BAD_ORIGIN", "BAD_PATH", "BAD_TOKEN", "REQUEST_TOO_LARGE", "BAD_REQUEST", "NETWORK", "RESPONSE_TOO_LARGE", "UNAUTHORIZED"]);
+  var SERVICE_CODES = /* @__PURE__ */ new Set(["BAD_ORIGIN", "BAD_PATH", "BAD_TOKEN", "BAD_USER_ID", "REQUEST_TOO_LARGE", "BAD_REQUEST", "NETWORK", "RESPONSE_TOO_LARGE", "UNAUTHORIZED"]);
   async function querySite(site, service) {
     const request = (path) => service(site, path);
     return loadBalance(request);
@@ -2167,6 +2168,16 @@ ${GUEST_UI_LOOK_CSS}`;
   var MAX_TOKEN_LENGTH = 512;
   var MAX_ID_LENGTH = 64;
   var PRIVATE_HOST = /^(localhost|[^.]+\.localhost|[^.]+\.local|127(?:\.\d{1,3}){3}|10(?:\.\d{1,3}){3}|192\.168(?:\.\d{1,3}){2}|172\.(?:1[6-9]|2\d|3[01])(?:\.\d{1,3}){2}|::1|\[::1\])$/iu;
+  function validateUserId(value) {
+    if (value === void 0) return { ok: true };
+    if (typeof value !== "string") return { ok: false };
+    const trimmed = value.trim();
+    if (!trimmed) return { ok: true };
+    if (!/^[1-9]\d*$/u.test(trimmed)) return { ok: false };
+    const number = Number(trimmed);
+    if (!Number.isSafeInteger(number) || number < 1) return { ok: false };
+    return { ok: true, userId: String(number) };
+  }
   function failOrigin(message) {
     return { ok: false, message };
   }
@@ -2206,6 +2217,8 @@ ${GUEST_UI_LOOK_CSS}`;
     const errors = {};
     const origin = normalizeOrigin(draft.origin);
     if (!origin.ok) errors.origin = origin.message;
+    const userId = validateUserId(draft.userId);
+    if (!userId.ok) errors.userId = "用户 ID 必须是正整数。";
     const token = draft.token.trim();
     if (!token && !existingToken) errors.token = "请填写账号 access token（不是 sk- 开头的模型 API Key）。";
     if (token.length > MAX_TOKEN_LENGTH) errors.token = "令牌过长。";
@@ -2218,7 +2231,8 @@ ${GUEST_UI_LOOK_CSS}`;
       ok: true,
       name: rawName || displayHost(safeOrigin),
       origin: safeOrigin,
-      token: token || existingToken
+      token: token || existingToken,
+      ...userId.ok && userId.userId ? { userId: userId.userId } : {}
     };
   }
   function record2(value) {
@@ -2238,12 +2252,15 @@ ${GUEST_UI_LOOK_CSS}`;
       const rawName = typeof item.name === "string" ? item.name.trim() : "";
       const token = typeof item.token === "string" ? item.token.trim() : "";
       if (token.length > MAX_TOKEN_LENGTH) continue;
+      const userId = validateUserId(item.userId);
+      if (!userId.ok) continue;
       seen.add(id);
       sites.push({
         id,
         name: rawName.slice(0, MAX_NAME_LENGTH) || displayHost(origin.origin),
         origin: origin.origin,
-        token
+        token,
+        ...userId.userId ? { userId: userId.userId } : {}
       });
       if (sites.length >= MAX_SITES) break;
     }
@@ -2316,7 +2333,7 @@ ${GUEST_UI_LOOK_CSS}`;
     return dirty || hasUnsavedNew() || rows.some((row) => row.editing);
   }
   function emptyDraft(site) {
-    return site ? { name: site.name, origin: site.origin, token: "" } : { name: "", origin: "", token: "" };
+    return site ? { name: site.name, origin: site.origin, token: "", userId: site.userId ?? "" } : { name: "", origin: "", token: "", userId: "" };
   }
   function newId() {
     const uuid = globalThis.crypto?.randomUUID?.();
@@ -2373,7 +2390,7 @@ ${GUEST_UI_LOOK_CSS}`;
         invalid = true;
         continue;
       }
-      row.saved = { id: row.saved?.id ?? newId(), name: result.name, origin: result.origin, token: result.token };
+      row.saved = { id: row.saved?.id ?? newId(), name: result.name, origin: result.origin, token: result.token, ...result.userId ? { userId: result.userId } : {} };
       row.draft = emptyDraft(row.saved);
       row.errors = {};
       row.editing = false;
@@ -2489,7 +2506,7 @@ ${GUEST_UI_LOOK_CSS}`;
       render();
       return;
     }
-    row.saved = { id: row.saved?.id ?? newId(), name: result.name, origin: result.origin, token: result.token };
+    row.saved = { id: row.saved?.id ?? newId(), name: result.name, origin: result.origin, token: result.token, ...result.userId ? { userId: result.userId } : {} };
     row.draft = emptyDraft(row.saved);
     row.errors = {};
     row.editing = false;
@@ -2512,9 +2529,10 @@ ${GUEST_UI_LOOK_CSS}`;
     const nameSlot = document.createElement("div");
     const originSlot = document.createElement("div");
     const tokenSlot = document.createElement("div");
+    const userIdSlot = document.createElement("div");
     const footer = document.createElement("div");
     footer.className = "site-editor-actions";
-    box.append(nameSlot, originSlot, tokenSlot, footer);
+    box.append(nameSlot, originSlot, tokenSlot, userIdSlot, footer);
     mountTextField(nameSlot, {
       label: "名称（可选）",
       value: row.draft.name,
@@ -2547,6 +2565,18 @@ ${GUEST_UI_LOOK_CSS}`;
       onChange: (value) => {
         row.draft.token = value;
         delete row.errors.token;
+      }
+    });
+    mountTextField(userIdSlot, {
+      label: "用户 ID（可选）",
+      value: row.draft.userId,
+      placeholder: "填写账号的数字用户 ID",
+      mono: true,
+      error: row.errors.userId,
+      helper: "部分站点需要填写账号用户 ID，其他站点可留空。",
+      onChange: (value) => {
+        row.draft.userId = value;
+        delete row.errors.userId;
       }
     });
     mountButton(footer, { label: "完成", size: "sm", onClick: () => finishEdit(row) });

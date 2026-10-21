@@ -59,6 +59,9 @@ test("safe errors are fixed Chinese messages and never reveal supplied secrets",
     assert.doesNotMatch(message, /do-not-leak|token-secret|secret/u);
   }
   assert.match(safeErrorMessage({ code: "UNAUTHORIZED" }), /认证失败/u);
+  const badUserId = safeErrorMessage({ code: "BAD_USER_ID", message: "New-Api-User 12345 secret-token" });
+  assert.equal(badUserId, "站点用户 ID 无效，请在该站点设置中填写正确的数字账号用户 ID。");
+  assert.doesNotMatch(badUserId, /12345|secret-token|New-Api-User/u);
   assert.match(safeErrorMessage(new Error("QUOTA_INVALID")), /quota 无效/u);
   assert.match(safeErrorMessage(new Error("HTTP_401")), /认证失败/u);
   assert.match(safeErrorMessage({ status: 503 }), /服务器错误/u);

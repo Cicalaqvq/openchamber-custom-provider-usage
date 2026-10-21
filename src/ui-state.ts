@@ -267,7 +267,7 @@ export class StatusController {
       const added = new Set<string>();
       for (const site of sites) {
         const old = previous.get(site.id);
-        if (!old || old.origin !== site.origin || old.token !== site.token) added.add(site.id);
+        if (!old || old.origin !== site.origin || old.token !== site.token || old.userId !== site.userId) added.add(site.id);
       }
       const removedOrReordered = !current
         || sites.length !== current.sites.length

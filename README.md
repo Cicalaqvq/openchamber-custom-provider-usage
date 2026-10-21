@@ -48,7 +48,7 @@
 1. 在 OpenChamber 打开 **设置 → 扩展 → 添加**。
 2. 选择 Git 仓库地址、项目根目录或维护者提供的 ZIP，然后安装并启用。Git 来源需要宿主环境具备 Git。
 3. 安装时阅读并明确批准扩展申请的**本地服务**权限。
-4. 从左侧“中转站余额”面板添加站点；再到 **Work Status** 启用并展开“中转站余额”区块。
+4. 从左侧 **OpenChamber Custom Provider Usage** 面板添加站点；再到 **Work Status** 启用并展开 **OpenChamber Custom Provider Usage** 区块。
 
 > GitHub 仓库：[Cicalaqvq/openchamber-custom-provider-usage](https://github.com/Cicalaqvq/openchamber-custom-provider-usage)。克隆地址：
 > ```text
@@ -64,6 +64,8 @@
 
 - **地址**：填写站点根地址，例如 `https://relay.example.com`；可省略 `https://`。不得包含路径、查询参数、片段或 URL 内账号密码。公网地址必须使用 HTTPS；HTTP 仅允许本机或内网地址。
 - **令牌**：每个站点使用独立的账号 access token / PAT，**不是模型调用用的 `sk-` API Key**。编辑时令牌留空表示保留原值，也可选择清除。
+- **账号用户 ID（可选）**：仅在站点要求 `New-Api-User` 请求头时填写正整数账号用户 ID；留空或清除后不会发送此请求头。其他站点可留空。
+- **9527.codes 示例**：填写该站点的账号 PAT，并填写与此 PAT 所属账号对应的用户 ID（不是令牌 ID）。可在自己的账号资料中查看，或在站点 DevTools 中查看已有成功的 `/api/user/self` 响应里的 `data.id`；不要分享认证请求头、Cookie 或令牌。
 - **保存**：表单里的“完成”只更新当前编辑状态，顶部“保存”才写入设置。
 - 可单独查询、刷新全部或调整站点顺序；删除站点需二次确认。“官网”按钮会用系统浏览器打开站点根地址。
 
@@ -83,11 +85,11 @@
 | --- | --- |
 | 余额为空或返回 401 / 403 | 确认使用账号 access token / PAT（不是 `sk-` API Key），且账号可访问 `/api/user/self`。 |
 | 服务未启动或未获授权 | 在**设置 → 扩展**确认扩展已启用并批准本地服务权限；首次请求会启动服务，失败可稍后重试。 |
-| 没有站点 | 从左侧“中转站余额”面板添加；Work Status 区块不提供新建表单。 |
+| 没有站点 | 从左侧 **OpenChamber Custom Provider Usage** 面板添加；Work Status 区块不提供新建表单。 |
 | 地址无效或无法连接 | 检查站点根地址和网络；公网须 HTTPS，地址不能带路径、查询参数、片段或账号密码。 |
 | 显示原始 quota 与回退说明 | 检查 `/api/status`、`quota_per_unit`、币种类型及相关汇率。 |
 | 配置没有立即反映 | 可见区块下一次检查时采用新设置（最长约 15 秒或当前刷新间隔）；折叠时不更新。 |
-| 管理面板无法打开 | 区块内“管理”需要当前有项目目录；也可从左侧扩展栏打开“中转站余额”。 |
+| 管理面板无法打开 | 区块内“管理”需要当前有项目目录；也可从左侧扩展栏打开 **OpenChamber Custom Provider Usage**。 |
 
 <details>
 <summary>技术行为与限制</summary>
@@ -96,9 +98,9 @@
 - 换算配置读取 `GET /api/status`：USD 为 `quota / quota_per_unit`；CNY 额外乘站点 USD 汇率；CUSTOM 使用站点自定义符号和汇率；TOKENS 显示 quota 原值。配置缺失、无效或币种未知时回退显示原始 quota 并说明原因。
 - 每批最多并发查询 4 个站点。失败只更新该站点错误状态，保留上次成功余额和时间，并在区块底部汇总错误。
 - 最多 20 个站点；名称最多 40 字符，令牌最多 512 字符。读回存储时会重新校验，损坏条目会被丢弃。
-- 当前上游版本无需 `New-Api-User` 用户 ID 请求头；依赖该请求头的旧版或定制版站点可能无法查询。
+- 可选账号用户 ID 只用于设置 `New-Api-User` 请求头；留空时不发送。9527.codes 缺少此请求头导致失败的情况依据用户提供的 401 响应及本地回归夹具复现；真实认证的 9527.codes 与宿主端到端验证尚未完成。
 - 扩展只申请 `service` 权限，不申请 `network`、`files` 或 `filesystem`。OpenChamber 宿主本地服务负责访问动态配置的站点；服务只监听 `127.0.0.1`，每条请求需服务令牌授权，扩展页面通过 `host.serviceRequest` 调用。
-- 服务业务接口为 `POST /proxy`，另有宿主就绪检查 `/health`。目标地址会重新校验为 HTTPS 根地址（或本机/内网 HTTP），请求路径受限且不跟随重定向；只附加该站点的 Bearer 令牌。服务不记录请求日志、不读取其他宿主凭据；上游响应超过 1 MB 会拒绝，错误信息仅使用固定错误码。
+- 服务业务接口为 `POST /proxy`，另有宿主就绪检查 `/health`。目标地址会重新校验为 HTTPS 根地址（或本机/内网 HTTP），请求路径受限且不跟随重定向；只附加该站点的 Bearer 令牌，并且仅在配置用户 ID 时附加 `New-Api-User`。服务不记录请求日志、不读取其他宿主凭据；上游响应超过 1 MB 会拒绝，错误信息仅使用固定错误码。
 
 </details>
 

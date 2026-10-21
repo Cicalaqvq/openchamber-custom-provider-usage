@@ -1,6 +1,6 @@
 /** Local service: the only component allowed to talk to arbitrary relay origins. */
 import http from "node:http";
-import { normalizeOrigin } from "./sites";
+import { normalizeOrigin, validateUserId } from "./sites";
 
 const port = Number(process.env.OPENCHAMBER_SERVICE_PORT);
 const token = process.env.OPENCHAMBER_SERVICE_TOKEN ?? "";
@@ -14,7 +14,7 @@ const MAX_BODY_BYTES = 1_000_000;
 const MAX_REQUEST_BYTES = 16_000;
 const MAX_PATH_LENGTH = 512;
 
-type ProxyRequest = { origin?: unknown; token?: unknown; path?: unknown; method?: unknown };
+type ProxyRequest = { origin?: unknown; token?: unknown; path?: unknown; userId?: unknown; method?: unknown };
 
 function send(res: http.ServerResponse, status: number, body: unknown): void {
   res.writeHead(status, { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" });
@@ -60,14 +60,14 @@ function safeToken(value: unknown): string | undefined {
   return trimmed;
 }
 
-async function proxy(originInput: string, bearer: string, path: string): Promise<{ status: number; body: string }> {
+async function proxy(originInput: string, bearer: string, path: string, userId?: string): Promise<{ status: number; body: string }> {
   const normalized = normalizeOrigin(originInput);
   if (!normalized.ok) throw new Error("BAD_ORIGIN");
   const url = new URL(path, `${normalized.origin}/`);
   if (url.origin !== normalized.origin) throw new Error("BAD_ORIGIN");
   const response = await fetch(url, {
     method: "GET",
-    headers: { Accept: "application/json", Authorization: `Bearer ${bearer}` },
+    headers: { Accept: "application/json", Authorization: `Bearer ${bearer}`, ...(userId ? { "New-Api-User": userId } : {}) },
     redirect: "manual",
     signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
   });
@@ -109,6 +109,7 @@ const server = http.createServer((req, res) => {
     }
     const path = safePath(payload.path);
     const bearer = safeToken(payload.token);
+    const userId = validateUserId(payload.userId);
     const origin = typeof payload.origin === "string" ? payload.origin : "";
     if (!path) {
       send(res, 400, { error: "BAD_PATH" });
@@ -118,8 +119,12 @@ const server = http.createServer((req, res) => {
       send(res, 400, { error: "BAD_TOKEN" });
       return;
     }
+    if (!userId.ok) {
+      send(res, 400, { error: "BAD_USER_ID" });
+      return;
+    }
     try {
-      const result = await proxy(origin, bearer, path);
+      const result = await proxy(origin, bearer, path, userId.userId);
       send(res, 200, result);
     } catch (error) {
       const code = error instanceof Error ? error.message : "NETWORK";

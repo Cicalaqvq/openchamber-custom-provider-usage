@@ -35,10 +35,20 @@ test("sends origin, token and path to the local service as one JSON body", async
   assert.deepEqual(JSON.parse(host.calls[0].body), { origin: "https://a.example.com", token: "site-token", path: "/api/user/self" });
 });
 
+test("round-trips an optional user ID without changing legacy payloads", async () => {
+  const host = fakeService(() => ({ status: 200, body: JSON.stringify({ status: 200, body: "{}" }) }));
+  const querier = createQuerier(host);
+  await querier(site, "/api/user/self");
+  await querier({ ...site, userId: "9527" }, "/api/user/self");
+  assert.deepEqual(JSON.parse(host.calls[0].body), { origin: site.origin, token: site.token, path: "/api/user/self" });
+  assert.deepEqual(JSON.parse(host.calls[1].body), { origin: site.origin, token: site.token, path: "/api/user/self", userId: "9527" });
+});
+
 test("maps service refusals to fixed errors and never surfaces the raw body", async () => {
   const refusals = [
     [{ status: 200, body: JSON.stringify({ error: "BAD_ORIGIN" }) }, /BAD_ORIGIN/u],
     [{ status: 200, body: JSON.stringify({ error: "NETWORK" }) }, /NETWORK/u],
+    [{ status: 400, body: JSON.stringify({ error: "BAD_USER_ID" }) }, /BAD_USER_ID/u],
     [{ status: 502, body: JSON.stringify({ error: "NETWORK" }) }, /NETWORK/u],
     [{ status: 200, body: "not json" }, /SERVICE_HTTP_200|SERVICE_RESPONSE_INVALID/u],
     [{ status: 200, body: JSON.stringify({ status: "200", body: "x" }) }, /SERVICE_RESPONSE_INVALID/u],
